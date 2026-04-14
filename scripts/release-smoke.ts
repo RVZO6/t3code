@@ -37,15 +37,15 @@ function writeMacManifestFixtures(targetRoot: string): { arm64Path: string; x64P
 
   writeFileSync(
     arm64Path,
-    `version: 9.9.9-smoke.0
+    `version: 9.9.9
 files:
-  - url: T3-Code-9.9.9-smoke.0-arm64.zip
+  - url: T3-Code-9.9.9-arm64.zip
     sha512: arm64zip
     size: 125621344
-  - url: T3-Code-9.9.9-smoke.0-arm64.dmg
+  - url: T3-Code-9.9.9-arm64.dmg
     sha512: arm64dmg
     size: 131754935
-path: T3-Code-9.9.9-smoke.0-arm64.zip
+path: T3-Code-9.9.9-arm64.zip
 sha512: arm64zip
 releaseDate: '2026-03-08T10:32:14.587Z'
 `,
@@ -53,15 +53,15 @@ releaseDate: '2026-03-08T10:32:14.587Z'
 
   writeFileSync(
     x64Path,
-    `version: 9.9.9-smoke.0
+    `version: 9.9.9
 files:
-  - url: T3-Code-9.9.9-smoke.0-x64.zip
+  - url: T3-Code-9.9.9-x64.zip
     sha512: x64zip
     size: 132000112
-  - url: T3-Code-9.9.9-smoke.0-x64.dmg
+  - url: T3-Code-9.9.9-x64.dmg
     sha512: x64dmg
     size: 138148807
-path: T3-Code-9.9.9-smoke.0-x64.zip
+path: T3-Code-9.9.9-x64.zip
 sha512: x64zip
 releaseDate: '2026-03-08T10:36:07.540Z'
 `,
@@ -83,12 +83,7 @@ try {
 
   execFileSync(
     process.execPath,
-    [
-      resolve(repoRoot, "scripts/update-release-package-versions.ts"),
-      "9.9.9-smoke.0",
-      "--root",
-      tempRoot,
-    ],
+    [resolve(repoRoot, "scripts/update-release-package-versions.ts"), "9.9.9", "--root", tempRoot],
     {
       cwd: repoRoot,
       stdio: "inherit",
@@ -101,11 +96,7 @@ try {
   });
 
   const lockfile = readFileSync(resolve(tempRoot, "bun.lock"), "utf8");
-  assertContains(
-    lockfile,
-    `"version": "9.9.9-smoke.0"`,
-    "Expected bun.lock to contain the smoke version.",
-  );
+  assertContains(lockfile, `"version": "9.9.9"`, "Expected bun.lock to contain the smoke version.");
 
   const nightlyReleaseMetadata = execFileSync(
     process.execPath,
@@ -149,12 +140,12 @@ try {
   const mergedManifest = readFileSync(arm64Path, "utf8");
   assertContains(
     mergedManifest,
-    "T3-Code-9.9.9-smoke.0-arm64.zip",
+    "T3-Code-9.9.9-arm64.zip",
     "Merged manifest is missing the arm64 asset.",
   );
   assertContains(
     mergedManifest,
-    "T3-Code-9.9.9-smoke.0-x64.zip",
+    "T3-Code-9.9.9-x64.zip",
     "Merged manifest is missing the x64 asset.",
   );
 
