@@ -39,6 +39,10 @@ const ProductionWindowsIconSource = Effect.zipWith(
   (repoRoot, path) => path.join(repoRoot, BRAND_ASSET_PATHS.productionWindowsIconIco),
 );
 const encodeJsonString = Schema.encodeEffect(Schema.UnknownFromJsonString);
+const DESKTOP_APP_ID = "com.t3tools.t3code.dev";
+const DESKTOP_APP_SLUG = "t3code-dev";
+const DESKTOP_PRODUCT_NAME = desktopPackageJson.productName ?? "T3 Code (Dev)";
+const DESKTOP_ARTIFACT_NAME = "T3-Code-Dev-${version}-${arch}.${ext}";
 
 interface PlatformConfig {
   readonly cliFlag: "--mac" | "--linux" | "--win";
@@ -293,6 +297,39 @@ const runCommand = Effect.fn("runCommand")(function* (command: ChildProcess.Comm
   }
 });
 
+const copyArtifactEntry = Effect.fn("copyArtifactEntry")(function* (
+  from: string,
+  to: string,
+  verbose: boolean,
+) {
+  const fs = yield* FileSystem.FileSystem;
+  const stat = yield* fs.stat(from).pipe(Effect.catch(() => Effect.succeed(null)));
+  if (!stat || (stat.type !== "File" && stat.type !== "Directory")) {
+    return false;
+  }
+
+  if (stat.type === "File") {
+    yield* fs.copyFile(from, to);
+    return true;
+  }
+
+  if (yield* fs.exists(to)) {
+    yield* fs.remove(to, { recursive: true, force: true });
+  }
+
+  const copyDirectoryCommand =
+    process.platform === "darwin"
+      ? ChildProcess.make({
+          ...commandOutputOptions(verbose),
+        })`ditto ${from} ${to}`
+      : ChildProcess.make({
+          ...commandOutputOptions(verbose),
+        })`cp -R ${from} ${to}`;
+
+  yield* runCommand(copyDirectoryCommand);
+  return true;
+});
+
 function generateMacIconSet(
   sourcePng: string,
   targetIcns: string,
@@ -475,9 +512,9 @@ const createBuildConfig = Effect.fn("createBuildConfig")(function* (
   mockUpdateServerPort: string | undefined,
 ) {
   const buildConfig: Record<string, unknown> = {
-    appId: "com.t3tools.t3code",
+    appId: DESKTOP_APP_ID,
     productName,
-    artifactName: "T3-Code-${version}-${arch}.${ext}",
+    artifactName: DESKTOP_ARTIFACT_NAME,
     directories: {
       buildResources: "apps/desktop/resources",
     },
@@ -505,12 +542,12 @@ const createBuildConfig = Effect.fn("createBuildConfig")(function* (
   if (platform === "linux") {
     buildConfig.linux = {
       target: [target],
-      executableName: "t3code",
+      executableName: DESKTOP_APP_SLUG,
       icon: "icon.png",
       category: "Development",
       desktop: {
         entry: {
-          StartupWMClass: "t3code",
+          StartupWMClass: DESKTOP_APP_SLUG,
         },
       },
     };
@@ -671,18 +708,18 @@ const buildDesktopArtifact = Effect.fn("buildDesktopArtifact")(function* (
   yield* fs.copy(stageResourcesDir, path.join(stageAppDir, "apps/desktop/prod-resources"));
 
   const stagePackageJson: StagePackageJson = {
-    name: "t3code",
+    name: DESKTOP_APP_SLUG,
     version: appVersion,
     buildVersion: appVersion,
     t3codeCommitHash: commitHash,
     private: true,
-    description: "T3 Code desktop build",
+    description: "T3 Code (Dev) desktop build",
     author: "T3 Tools",
     main: "apps/desktop/dist-electron/main.js",
     build: yield* createBuildConfig(
       options.platform,
       options.target,
-      desktopPackageJson.productName ?? "T3 Code",
+      DESKTOP_PRODUCT_NAME,
       options.signed,
       options.mockUpdates,
       options.mockUpdateServerPort,
@@ -763,11 +800,9 @@ const buildDesktopArtifact = Effect.fn("buildDesktopArtifact")(function* (
   const copiedArtifacts: string[] = [];
   for (const entry of stageEntries) {
     const from = path.join(stageDistDir, entry);
-    const stat = yield* fs.stat(from).pipe(Effect.catch(() => Effect.succeed(null)));
-    if (!stat || stat.type !== "File") continue;
-
     const to = path.join(options.outputDir, entry);
-    yield* fs.copyFile(from, to);
+    const copied = yield* copyArtifactEntry(from, to, options.verbose);
+    if (!copied) continue;
     copiedArtifacts.push(to);
   }
 
