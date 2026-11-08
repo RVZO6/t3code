@@ -4,6 +4,13 @@ import { AGENT_DEVICE_VERSION, DEVICE_HUB_VERSION } from "./DeviceToolchain.ts";
 export const quoteRemoteArg = (value: string) => `'${value.replaceAll("'", "'\"'\"'")}'`;
 
 export const remoteDeviceEnvironment = `export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
+# SSH may omit the runtime directory containing emulator gRPC credentials.
+if [ -z "$XDG_RUNTIME_DIR" ] && [ "$(uname -s 2>/dev/null)" = Linux ]; then
+  device_runtime_dir="/run/user/$(id -u)"
+  if test -d "$device_runtime_dir" && test -O "$device_runtime_dir"; then
+    export XDG_RUNTIME_DIR="$device_runtime_dir"
+  fi
+fi
 if [ -z "$ANDROID_HOME" ]; then
   if [ -d "$HOME/Library/Android/sdk" ]; then export ANDROID_HOME="$HOME/Library/Android/sdk";
   elif [ -d "$HOME/Android/Sdk" ]; then export ANDROID_HOME="$HOME/Android/Sdk"; fi

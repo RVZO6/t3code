@@ -35,6 +35,51 @@ it.effect("finds Android Studio Java for a non-interactive SSH session", () =>
   }),
 );
 
+it.effect("exports the owned Linux runtime directory when SSH omits it", () =>
+  Effect.gen(function* () {
+    if ((yield* HostProcess.Platform) === "win32") return;
+    yield* Effect.promise(async () => {
+      for (const scenario of [
+        { platform: "Linux", exists: true, owned: true, current: "", expected: "/run/user/1234" },
+        { platform: "Linux", exists: false, owned: true, current: "", expected: "" },
+        { platform: "Linux", exists: true, owned: false, current: "", expected: "" },
+        { platform: "Darwin", exists: true, owned: true, current: "", expected: "" },
+        {
+          platform: "Linux",
+          exists: true,
+          owned: true,
+          current: "/custom/runtime",
+          expected: "/custom/runtime",
+        },
+      ]) {
+        const script = `
+uname() { printf %s ${scenario.platform}; }
+id() { printf %s 1234; }
+test() {
+  case "$1:$2" in
+    -d:/run/user/1234) return ${scenario.exists ? 0 : 1} ;;
+    -O:/run/user/1234) return ${scenario.owned ? 0 : 1} ;;
+    *) command test "$@" ;;
+  esac
+}
+${remoteDeviceEnvironment}
+${quoteRemoteArg(process.execPath)} -e 'process.stdout.write(process.env.XDG_RUNTIME_DIR ?? "")'
+`;
+        const result = await exec("/bin/sh", ["-c", script], {
+          env: {
+            HOME: "/nonexistent",
+            PATH: "/usr/bin:/bin",
+            ANDROID_HOME: "/provided-android",
+            JAVA_HOME: "/provided-java",
+            XDG_RUNTIME_DIR: scenario.current,
+          },
+        });
+        expect(result.stdout).toBe(scenario.expected);
+      }
+    });
+  }),
+);
+
 it.effect("preserves shell metacharacters and newlines in remote arguments", () =>
   Effect.gen(function* () {
     if ((yield* HostProcess.Platform) === "win32") return;
