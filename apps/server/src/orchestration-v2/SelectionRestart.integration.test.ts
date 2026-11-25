@@ -649,6 +649,36 @@ it.live.each(["pooled", "exclusive"] as const)(
         (yield* Ref.get(state)).started.map((turn) => turn.cwd),
         [cwd, handoffCwd],
       );
+      const continuationRun = projection.runs[1];
+      assert.isDefined(continuationRun);
+      assert.deepEqual(continuationRun?.workStartedAt, projection.runs[0]?.startedAt);
+      const continuationMessage = projection.messages.find(
+        (message) => message.id === "message:workspace-handoff:continuation",
+      );
+      assert.equal(continuationMessage?.creationSource, "server");
+      assert.deepEqual(continuationMessage?.notification, {
+        source: { kind: "system" },
+        outcome: "updated",
+        summary: "Moved to worktree on repro-handoff",
+        detail: "continue in the worktree",
+      });
+      const continuationItems = projection.turnItems.filter(
+        (item) => item.runId === continuationRun?.id,
+      );
+      assert.isFalse(
+        continuationItems.some((item) => item.type === "user_message"),
+        "a worktree handoff continuation must project as a system notification, not an Agent chat bubble",
+      );
+      const continuationNotification = continuationItems.find(
+        (item) => item.type === "notification",
+      );
+      assert.isDefined(continuationNotification);
+      if (continuationNotification?.type === "notification") {
+        assert.deepEqual(continuationNotification.source, { kind: "system" });
+        assert.equal(continuationNotification.outcome, "updated");
+        assert.equal(continuationNotification.summary, "Moved to worktree on repro-handoff");
+        assert.equal(continuationNotification.detail, "continue in the worktree");
+      }
     }),
 );
 

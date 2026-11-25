@@ -832,19 +832,30 @@ function askedForLinkedMachine(
 function metadataUpdateContinuation(
   command: Extract<OrchestrationV2Command, { readonly type: "thread.metadata.update" }>,
 ): Extract<OrchestrationV2Command, { readonly type: "message.dispatch" }> | undefined {
-  return command.continuation === undefined
-    ? undefined
-    : {
-        type: "message.dispatch",
-        commandId: command.commandId,
-        threadId: command.threadId,
-        messageId: command.continuation.messageId,
-        text: command.continuation.text,
-        attachments: [],
-        dispatchMode: { type: "queue_after_active" },
-        createdBy: "agent",
-        creationSource: "mcp",
-      };
+  if (command.continuation === undefined) return undefined;
+  const summary =
+    command.worktreePath !== undefined
+      ? command.branch != null
+        ? `Moved to worktree on ${command.branch}`
+        : "Moved to worktree"
+      : "Continued thread";
+  return {
+    type: "message.dispatch",
+    commandId: command.commandId,
+    threadId: command.threadId,
+    messageId: command.continuation.messageId,
+    text: command.continuation.text,
+    notification: {
+      source: { kind: "system" },
+      outcome: "updated",
+      summary,
+      detail: command.continuation.text,
+    },
+    attachments: [],
+    dispatchMode: { type: "queue_after_active" },
+    createdBy: "agent",
+    creationSource: "server",
+  };
 }
 
 // A later command for the first message would leave the new thread committed with no run,
